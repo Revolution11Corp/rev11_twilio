@@ -1,0 +1,17 @@
+{
+  "name": "webhook-lambda",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mysql": "^2.16.0",
+    "query-string": "^6.2.0",
+    "sworm": "^3.8.0",
+    "twilio": "^3.27.1"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "rviot-7",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mssql": "^4.2.1",
+    "mysql": "^2.16.0",
+    "oracledb": "^2.3.0",
+    "pg": "^7.4.3",
+    "sqlite3": "^4.0.2",
+    "twilio": "^3.22.0",
+    "sworm": "https://github.com/Naturious/sworm.git"
+  }
+}

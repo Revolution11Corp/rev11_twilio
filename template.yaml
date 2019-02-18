@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda for fetching survey request DB records and injecting requests into Twilio via API
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Environment variables"
+        Parameters:
+          - 01-SERVER
+          - 02-PORT
+          - 03-DATABASE
+          - 04-DRIVER
+          - 05-ACCOUNT
+          - 06-PASSWORD
+          - 07-TWILIO SID
+          - 08-TWILIO AUTH
+          - 09-TWILIO NUMBER
+    ParameterLabels:
+      01SERVER:
+        default: "SERVER"
+      02PORT:
+        default: "PORT"
+      03DATABASE:
+        default: "DATABASE"
+      04DRIVER:
+        default: "DRIVER"
+      05ACCOUNT:
+        default: "ACCOUNT"
+      06PASSWORD:
+        default: "PASSWORD"
+      07TWILIOSID:
+        default: "TWILIOSID"
+      08TWILIOAUTH:
+        default: "TWILIOAUTH"
+      09TWILIONUMBER:
+        default: "TWILIONUMBER"
+
+Parameters:
+  01SERVER:
+    Description: The URL of the server where the database is hosted.
+    Type: String
+  02PORT:
+    Description: Port on which the database is accessible.
+    Type: String
+  03DATABASE:
+    Description: Name of the database where the tables are saved.
+    Type: String
+  04DRIVER:
+    Description: "The SQL platform were the database is hosted, can be one of the following: 'mssql', 'mysql', 'pg', 'oracle', 'sqlite' or 'websql'"
+    Type: String
+    AllowedPattern: "mysql|mssql|pg|oracle|sqlite|websql"
+  05ACCOUNT:
+    Description: Name of an account that has read privileges to the database.
+    Type: String
+  06PASSWORD:
+    Description: The password for ACCOUNT above.
+    Type: String
+    NoEcho: true
+  07TWILIOSID:
+    Description: Twilio account SID to call from
+    Type: String
+  08TWILIOAUTH:
+    Description: Auth key for Twilio account SID above.
+    Type: String
+    NoEcho: true
+  09TWILIONUMBER:
+    Description: Twilio Number from which to call the surveys
+    Type: String
+    NoEcho: true
+
+Globals:
+    Function:
+        Timeout: 10
+        MemorySize: 128
+        Runtime: nodejs8.10
+        Handler: index.handler
+        Environment:
+          Variables:
+            SERVER: !Ref 01SERVER
+            PORT: !Ref 02PORT
+            DATABASE: !Ref 03DATABASE
+            DRIVER: !Ref 04DRIVER
+            ACCOUNT: !Ref 05ACCOUNT
+            PASSWORD: !Ref 06PASSWORD
+            T_SID: !Ref 07TWILIOSID
+            T_AUTH: !Ref 08TWILIOAUTH
+            T_NUMBER: !Ref 09TWILIONUMBER
+
+Resources:
+    twVoiceCallback:
+        Description: "API Gateway endpoint URL for Twilio API webhooks"
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: 'Handles twilio callbacks after survey has been initiated.'
+            CodeUri: s3://revolution11twilio/twVoiceCallback.zip
+            Events:
+                TwilioAPI:
+                    Type: Api
+                    Properties:
+                        Path: /twilio/rpc/v1/survey/callback
+                        Method: post
+
+    twVoiceCallRequestExecuteIot:
+        Description: "Initiates survey from IoT button and existing survey request (phone# in request is called)."
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: 'Initiates survey from IoT button and existing survey request (phone# in request is called).'
+            CodeUri: s3://revolution11twilio/twVoiceCallRequestExecuteIot.zip
+            Environment:
+              Variables:
+                WEBHOOK_URL: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/twilio/rpc/v1/survey/callback"
+
+Outputs:
+    TwilioApi:
+      Description: "API Gateway endpoint URL for Twilio API webhooks"
+      Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/twilio/rpc/v1/survey/callback"
+
+    twVoiceCallback:
+      Description: "Handles twilio callbacks after survey has been initiated."
+      Value: !GetAtt twVoiceCallback.Arn
+
+    twVoiceCallRequestExecuteIot:
+      Description: "Initiates survey from IoT button and existing survey request (phone# in request is called)."
+      Value: !GetAtt twVoiceCallRequestExecuteIot.Arn
