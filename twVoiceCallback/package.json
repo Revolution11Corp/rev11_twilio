@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "aws-param-store": "^2.1.0",
     "mysql": "^2.16.0",
     "query-string": "^6.2.0",
     "sworm": "^3.8.0",

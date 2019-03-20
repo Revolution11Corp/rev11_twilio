@@ -40,16 +40,16 @@ Metadata:
 
 Parameters:
   01SERVER:
-    Description: The URL of the server where the database is hosted.
+    Description: Database location, via IP or FQN
     Type: String
   02PORT:
     Description: Port on which the database is accessible.
     Type: String
   03DATABASE:
-    Description: Name of the database where the tables are saved.
+    Description: Database name
     Type: String
   04DRIVER:
-    Description: "The SQL platform were the database is hosted, can be one of the following: 'mssql', 'mysql', 'pg', 'oracle', 'sqlite' or 'websql'"
+    Description: "Database driver, can be one of the following: 'mssql', 'mysql', 'pg', 'oracle', 'sqlite' or 'websql'"
     Type: String
     AllowedPattern: "mysql|mssql|pg|oracle|sqlite|websql"
   05ACCOUNT:
@@ -63,11 +63,11 @@ Parameters:
     Description: Twilio account SID to call from
     Type: String
   08TWILIOAUTH:
-    Description: Auth key for Twilio account SID above.
+    Description: Authorization string for Twilio account
     Type: String
     NoEcho: true
   09TWILIONUMBER:
-    Description: Twilio Number from which to call the surveys
+    Description: Twilio 'call from' phone number
     Type: String
     NoEcho: true
 
@@ -77,19 +77,80 @@ Globals:
         MemorySize: 128
         Runtime: nodejs8.10
         Handler: index.handler
-        Environment:
-          Variables:
-            SERVER: !Ref 01SERVER
-            PORT: !Ref 02PORT
-            DATABASE: !Ref 03DATABASE
-            DRIVER: !Ref 04DRIVER
-            ACCOUNT: !Ref 05ACCOUNT
-            PASSWORD: !Ref 06PASSWORD
-            T_SID: !Ref 07TWILIOSID
-            T_AUTH: !Ref 08TWILIOAUTH
-            T_NUMBER: !Ref 09TWILIONUMBER
 
 Resources:
+    twServerParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twServerParameter
+          Description: 'Database location, via IP or FQN'
+          Type: String
+          Value: !Sub '${01SERVER}' 
+
+    twPortParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twPortParameter
+          Description: 'Database port'
+          Type: String
+          Value: !Sub '${02PORT}' 
+
+    twDatabaseParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twDatabaseParameter
+          Description: 'Database name'
+          Type: String
+          Value: !Sub '${03DATABASE}'
+
+    twDriverParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twDriverParameter
+          Description: "Database driver, can be one of the following: 'mssql', 'mysql', 'pg', 'oracle', 'sqlite' or 'websql'"
+          Type: String
+          Value: !Sub '${04DRIVER}'
+
+    twAccountParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twAccountParameter
+          Description: 'Account parameter to store in the paramater store'
+          Type: String
+          Value: !Sub '${05ACCOUNT}'
+
+    twPasswordParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twPasswordParameter
+          Description: 'Database password'
+          Type: String
+          Value: !Sub '${06PASSWORD}'
+
+    twTwilioSIDParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twTwilioSIDParameter
+          Description: 'Twilio SID value'
+          Type: String
+          Value: !Sub '${07TWILIOSID}'
+
+    twTwilioAUTHParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twTwilioAUTHParameter
+          Description: 'Authorization string for Twilio account'
+          Type: String
+          Value: !Sub '${08TWILIOAUTH}'
+
+    twTwilioNumberParameter:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /revolution11twilio/twTwilioNumberParameter
+          Description: "Twilio 'call from' phone number"
+          Type: String
+          Value: !Sub '${09TWILIONUMBER}'
+
     twVoiceCallback:
         Description: "API Gateway endpoint URL for Twilio API webhooks"
         Type: AWS::Serverless::Function
@@ -102,6 +163,23 @@ Resources:
                     Properties:
                         Path: /twilio/rpc/v1/survey/callback
                         Method: post
+            Policies:
+              - Statement:
+                - Action:
+                    - ssm:GetParameter
+                  Effect: Allow
+                  Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/revolution11twilio/*
+            Environment:
+              Variables:
+                SERVER: !Ref twServerParameter
+                PORT: !Ref twPortParameter
+                DATABASE: !Ref twDatabaseParameter
+                DRIVER: !Ref twDriverParameter
+                ACCOUNT: !Ref twAccountParameter
+                PASSWORD: !Ref twPasswordParameter
+                T_SID: !Ref twTwilioSIDParameter
+                T_AUTH: !Ref twTwilioAUTHParameter
+                T_NUMBER: !Ref twTwilioNumberParameter
 
     twVoiceCallRequestExecuteIot:
         Description: "Initiates survey from IoT button and existing survey request (phone# in request is called)."
@@ -109,14 +187,86 @@ Resources:
         Properties:
             Description: 'Initiates survey from IoT button and existing survey request (phone# in request is called).'
             CodeUri: s3://revolution11twilio/twVoiceCallRequestExecuteIot.zip
+            Policies:
+              - Statement:
+                - Action:
+                    - ssm:GetParameter
+                  Effect: Allow
+                  Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/revolution11twilio/*
             Environment:
               Variables:
-                WEBHOOK_URL: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/twilio/rpc/v1/survey/callback"
+                SERVER: !Ref twServerParameter
+                PORT: !Ref twPortParameter
+                DATABASE: !Ref twDatabaseParameter
+                DRIVER: !Ref twDriverParameter
+                ACCOUNT: !Ref twAccountParameter
+                PASSWORD: !Ref twPasswordParameter
+                T_SID: !Ref twTwilioSIDParameter
+                T_AUTH: !Ref twTwilioAUTHParameter
+                T_NUMBER: !Ref twTwilioNumberParameter
+                WEBHOOK_URL: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/${ServerlessRestApiProdStage}/twilio/rpc/v1/survey/callback"
+
+        
 
 Outputs:
+
+    twServerParameter:
+      Description: "Database location, via IP or FQN"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twServerParameter }
+
+    twPortParameter:
+      Description: "Database port"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twPortParameter }
+
+    twDriverParameter:
+      Description: "Database driver, can be one of the following: 'mssql', 'mysql', 'pg', 'oracle', 'sqlite' or 'websql'"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twDriverParameter }
+
+    twDatabaseParameter:
+      Description: "Database name"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twDatabaseParameter }
+
+    twAccountParameter:
+      Description: "Database user account name"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twAccountParameter }
+
+    twPasswordParameter:
+      Description: "Database password"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twPasswordParameter }
+
+    twTwilioAUTHParameter:
+      Description: "Authorization string for Twilio account"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twTwilioAUTHParameter }
+
+    twTwilioSIDParameter:
+      Description: "Twilio SID value"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twTwilioSIDParameter }
+
+    twTwilioNumberParameter:
+      Description: "Twilio 'call from' phone number"
+      Value: !Sub
+        - "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${id}/description?region=${AWS::Region}"
+        - { id: !Ref twTwilioNumberParameter }
+
     TwilioApi:
       Description: "API Gateway endpoint URL for Twilio API webhooks"
-      Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/twilio/rpc/v1/survey/callback"
+      Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/${ServerlessRestApiProdStage}/twilio/rpc/v1/survey/callback"
 
     twVoiceCallback:
       Description: "Handles twilio callbacks after survey has been initiated."

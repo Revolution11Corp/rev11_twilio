@@ -1,71 +1,73 @@
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const queryParser = require("query-string");
 const sworm = require("sworm");
+const awsParamStore = require('aws-param-store');
 
 const util = require('util')
 ///Get environment variables
 
 //Database credentials
-const user = process.env.ACCOUNT;
-const password = process.env.PASSWORD;
-const host = process.env.SERVER;
-const port = process.env.PORT;
-const db_name = process.env.DATABASE;
-const db_driver= process.env.DRIVER;
+const user = awsParamStore.getParameterSync(process.env.ACCOUNT).Value
+const password = awsParamStore.getParameterSync(process.env.PASSWORD).Value
+const host = awsParamStore.getParameterSync(process.env.SERVER).Value
+const port = awsParamStore.getParameterSync(process.env.PORT).Value
+const db_name = awsParamStore.getParameterSync(process.env.DATABASE).Value
+const db_driver= awsParamStore.getParameterSync(process.env.DRIVER).Value
 
 //Database column names:
 //These are hardcoded because they are numerous, but are written in this section for regrouping reasons
 const table_names = {
-    survey_request:"survey_request",
-    survey_result:"survey_result",
-    survey_template:"survey_template",
-    survey_template_question:"survey_template_question",
-    survey_template_answer:"survey_template_answer",
-    survey_template_verb:"survey_template_verb"
+    voice_call_request:"voice_call_request",
+    voice_call_result:"voice_call_result",
+    voice_call_template:"voice_call_template",
+    voice_call_question:"voice_call_question",
+    voice_call_answer:"voice_call_answer",
+    voice_call_verb:"voice_call_verb"
 }
 
-const table_survey_request = {
+
+const table_voice_call_request = {
     id:"id",
-    id_survey_template:"id_survey_template",
+    id_voice_call_template:"id_voice_call_template",
     name:"name",
     phone_num:"phone_num",
     button_serial:"button_serial",
-    twilio_survey_id:"twilio_survey_id"
+    twilio_voice_id:"twilio_voice_id"
 }
 
-const table_survey_result = {
+const table_voice_call_result = {
     id:"id",
-    id_survey_request:"id_survey_request",
-    id_survey_template_question:"id_survey_template_question",
+    id_voice_call_request:"id_voice_call_request",
+    id_voice_call_question:"id_voice_call_question",
     raw_result:"raw_result",
 }
 
-const table_survey_template = {
+const table_voice_call_template = {
     id:"id",
     name:"name",
     voice:"voice"
 }
 
-const table_survey_template_question = {
+const table_voice_call_question = {
     id:"id",
-    id_survey_template:"id_survey_template",
+    id_voice_call_template:"id_voice_call_template",
     id_next_question:"id_next_question",
     first_question:"first_question",
     name:"name",
     timeout_recursion:"timeout_recursion"
 }
 
-const table_survey_template_answer = {
+const table_voice_call_answer = {
     id:"id",
-    id_survey_template_question:"id_survey_template_question",
+    id_voice_call_question:"id_voice_call_question",
     id_next_question:"id_next_question",
     digit_pressed:"digit_pressed",
     say:"say"
 }
 
-const table_survey_template_verb = {
+const table_voice_call_verb = {
     id:"id",
-    id_survey_template_question:"id_survey_template_question",
+    id_voice_call_question:"id_voice_call_question",
     verb:"verb",
     num_digits:"num_digits",
     phrase:"phrase",
@@ -77,22 +79,22 @@ const table_survey_template_verb = {
 function buffer_verb(verb){
     //Buffer twiml verb to twiml object
     const voice_param = this.queryStringParameters["voice"];
-    switch(verb[table_survey_template_verb["verb"]]){
+    switch(verb[table_voice_call_verb["verb"]]){
         case 'gather':
-            const finish_on_key = verb[table_survey_template_verb["finish_on_key"]];
+            const finish_on_key = verb[table_voice_call_verb["finish_on_key"]];
             this.twiml.gather({
-                action:this.event.requestContext["path"]+"?id_question="+verb[table_survey_template_verb["id_survey_template_question"]]+(voice_param?`&voice=${voice_param}`:"")+(finish_on_key?"&finish_on_key=1":""),
-                numDigits : parseInt(verb[table_survey_template_verb["num_digits"]])
+                action:this.event.requestContext["path"]+"?id_question="+verb[table_voice_call_verb["id_voice_call_question"]]+(voice_param?`&voice=${voice_param}`:"")+(finish_on_key?"&finish_on_key=1":""),
+                numDigits : parseInt(verb[table_voice_call_verb["num_digits"]])
             });
             break;
         case 'record':
             this.twiml.record({
-                action:this.event.requestContext["path"]+"?id_question="+verb[table_survey_template_verb["id_survey_template_question"]]+(voice_param?`&voice=${voice_param}`:""),
-                timeout: verb[table_survey_template_verb["timeout"]],
+                action:this.event.requestContext["path"]+"?id_question="+verb[table_voice_call_verb["id_voice_call_question"]]+(voice_param?`&voice=${voice_param}`:""),
+                timeout: verb[table_voice_call_verb["timeout"]],
             });
             break;
         case 'say':
-            let phrase = verb[table_survey_template_verb["phrase"]];
+            let phrase = verb[table_voice_call_verb["phrase"]];
             if(this.replace_digits){
                 phrase = phrase.replace("<digitsPressed>",this.bodyObj.Digits.split("").join(","))
             }
@@ -120,7 +122,7 @@ function response(twiml){
 
 async function ask_question(id_question, obj){
     //Look for the question
-    const questions = await obj.db.query(`SELECT * FROM ${table_names["survey_template_question"]} WHERE ${table_survey_template_question["id"]} = ${id_question}`)
+    const questions = await obj.db.query(`SELECT * FROM ${table_names["voice_call_question"]} WHERE ${table_voice_call_question["id"]} = ${id_question}`)
     if(!questions.length){
         //Question wasn't found
         console.log("Question wasn't found");
@@ -130,7 +132,7 @@ async function ask_question(id_question, obj){
     //Question found
     console.log("Question found: ",questions[0])
     //Loop over verbs
-    const sql_query = `SELECT * FROM ${table_names["survey_template_verb"]} WHERE ${table_survey_template_verb["id_survey_template_question"]} = ${id_question}`
+    const sql_query = `SELECT * FROM ${table_names["voice_call_verb"]} WHERE ${table_voice_call_verb["id_voice_call_question"]} = ${id_question}`
     console.log(sql_query)
     const verbs = await obj.db.query(sql_query)
     console.log(`Found ${verbs.length} verbs associated to this question`)
@@ -215,24 +217,24 @@ exports.handler = async (event) => {
             //Locate question answered via id_question
             const id_question = queryStringParameters["id_question"];
 
-            //Locate id_survey_request through callSid
+            //Locate id_voice_call_request through callSid
             const call_sid = bodyObj["CallSid"]
-            const req_query = `SELECT * FROM ${table_names["survey_request"]} WHERE ${table_survey_request["twilio_survey_id"]} = '${call_sid}'`
+            const req_query = `SELECT * FROM ${table_names["voice_call_request"]} WHERE ${table_voice_call_request["twilio_voice_id"]} = '${call_sid}'`
             console.log(req_query)
             const survey_requests = await db.query(req_query)
 
             //Save results to results table
             if(survey_requests.length){
                 const raw_res = JSON.stringify(decodeURIComponent(event.body));
-                const id_survey_request = survey_requests[0][table_survey_request["id"]]
-                const ins_query = `INSERT INTO ${table_names["survey_result"]}(${table_survey_result["raw_result"]},${table_survey_result["id_survey_request"]},${table_survey_result["id_survey_template_question"]}) VALUES(${raw_res},${id_survey_request},${id_question})`
+                const id_voice_call_request = survey_requests[0][table_voice_call_request["id"]]
+                const ins_query = `INSERT INTO ${table_names["voice_call_result"]}(${table_voice_call_result["raw_result"]},${table_voice_call_result["id_voice_call_request"]},${table_voice_call_result["id_voice_call_question"]}) VALUES(${raw_res},${id_voice_call_request},${id_question})`
                 console.log(ins_query)
                 await db.query(ins_query)
             }else{
-                console.log("Couldn't locate the survey_request associated to this answer")
+                console.log("Couldn't locate the voice_call_request associated to this answer")
                 //Save raw answer to DB
                 const raw_res = JSON.stringify(decodeURIComponent(event.body));
-                const ins_query = `INSERT INTO ${table_names["survey_result"]}(${table_survey_result["raw_result"]}) VALUES(${raw_res})`
+                const ins_query = `INSERT INTO ${table_names["voice_call_result"]}(${table_voice_call_result["raw_result"]}) VALUES(${raw_res})`
                 console.log(ins_query)
                 await db.query(ins_query)
             }
@@ -243,7 +245,7 @@ exports.handler = async (event) => {
 
             //Locate answer record via id_question and digit_pressed
             console.log("This is an answer, looking for the corresponding answer records:");
-            const sql_query = `SELECT * FROM ${table_names["survey_template_answer"]} WHERE ${table_survey_template_answer["id_survey_template_question"]} = ${id_question} AND ${table_survey_template_answer["digit_pressed"]} LIKE "${answerDigit}"`
+            const sql_query = `SELECT * FROM ${table_names["voice_call_answer"]} WHERE ${table_voice_call_answer["id_voice_call_question"]} = ${id_question} AND ${table_voice_call_answer["digit_pressed"]} LIKE "${answerDigit}"`
             console.log(sql_query)
             const answers = await db.query(sql_query)
 
@@ -251,7 +253,7 @@ exports.handler = async (event) => {
 
             if(!answers.length)
             {
-                const invalid_answer_query = `SELECT * FROM ${table_names["survey_template_answer"]} WHERE ${table_survey_template_answer["id_survey_template_question"]} = ${id_question} AND ${table_survey_template_answer["digit_pressed"]} LIKE "?"`
+                const invalid_answer_query = `SELECT * FROM ${table_names["voice_call_answer"]} WHERE ${table_voice_call_answer["id_voice_call_question"]} = ${id_question} AND ${table_voice_call_answer["digit_pressed"]} LIKE "?"`
                 console.log(invalid_answer_query)
                 const invalid_answers = await db.query(invalid_answer_query)
                 if(!invalid_answers.length){
@@ -270,19 +272,19 @@ exports.handler = async (event) => {
             }
 
             //Buffer Twilio say verb (if exists)
-            const say_content = corresponding_answer[table_survey_template_answer["say"]];
+            const say_content = corresponding_answer[table_voice_call_answer["say"]];
             twiml.say({
                 voice:queryStringParameters["voice"]?queryStringParameters["voice"]:"alice" //Add checking alice/man/woman in db entry
             },say_content);
             
             //Answer has id_next_question?
             let id_next_question;
-            if(corresponding_answer[table_survey_template_answer["id_next_question"]]){
-                id_next_question = corresponding_answer[table_survey_template_answer["id_next_question"]]
+            if(corresponding_answer[table_voice_call_answer["id_next_question"]]){
+                id_next_question = corresponding_answer[table_voice_call_answer["id_next_question"]]
             }else{
                 //Get answered question record:
-                const question = await db.query(`SELECT * FROM ${table_names["survey_template_question"]} WHERE ${table_survey_template_question["id"]} = ${id_question}`)
-                id_next_question = question[0][table_survey_template_question["id_next_question"]]
+                const question = await db.query(`SELECT * FROM ${table_names["voice_call_question"]} WHERE ${table_voice_call_question["id"]} = ${id_question}`)
+                id_next_question = question[0][table_voice_call_question["id_next_question"]]
             }
 
             if(queryStringParameters["finish_on_key"]){
