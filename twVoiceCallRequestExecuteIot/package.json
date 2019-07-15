@@ -10,13 +10,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-param-store": "^2.1.0",
-    "mssql": "^4.2.1",
-    "mysql": "^2.16.0",
-    "oracledb": "^2.3.0",
-    "pg": "^7.4.3",
-    "sqlite3": "^4.0.2",
-    "sworm": "https://github.com/Naturious/sworm.git",
-    "twilio": "^3.22.0"
+    "aws-param-store": "^3.0.0",
+    "mssql": "^5.1.0",
+    "mysql": "^2.17.1",
+    "oracledb": "^3.1.2",
+    "pg": "^7.11.0",
+    "sqlite3": "^4.0.9",
+    "sworm": "git+https://github.com/Naturious/sworm.git",
+    "twilio": "^3.33.1"
   }
 }
